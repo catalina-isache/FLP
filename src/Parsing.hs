@@ -9,7 +9,8 @@ import Text.ParserCombinators.Parsec.Token
 import Control.Applicative (some)
 
 miniHaskellDef :: LanguageDef st
-miniHaskellDef = undefined
+miniHaskellDef = haskellStyle
+
 
 miniHs :: TokenParser st
 miniHs = makeTokenParser miniHaskellDef
@@ -26,7 +27,7 @@ var = Var <$> identifier miniHs <|> (operator miniHs)
 -- Var {getVar = "b"}
 
 varExp :: Parser ComplexExp
-varExp = CX
+varExp = CX <$> var
 -- >>> testParse varExp "b is a var"
 -- CX (Var {getVar = "b"})
 
@@ -44,7 +45,7 @@ letExp :: Parser ComplexExp
 letExp = do 
     reservedName miniHs "let"
     v <- var
-    reservedOp miniHs "="
+    reservedOp miniHs ":="
     cex1 <- expr
     reservedName miniHs "in"
     cex2 <- expr
@@ -67,7 +68,10 @@ letrecExp = do
 -- LetRec (Var {getVar = "x"}) (CX (Var {getVar = "y"})) (CX (Var {getVar = "z"}))
 
 listExp :: Parser ComplexExp
-listExp = List <$> (brackets miniHs $ commaSep miniHs expr)
+listExp = do
+  items <- brackets miniHs (commaSep miniHs expr)
+  return $ List (map CX items)
+
 -- >>> ghci> testParse listExp "[a,b,c]"
 -- List [CX (Var {getVar = "a"}),CX (Var {getVar = "b"}),CX (Var {getVar = "c"})]
 
@@ -77,7 +81,7 @@ natExp = Nat <$> fromIntegral <$> natural miniHs
 -- Nat 223
 
 parenExp :: Parser ComplexExp
-parenExp = undefined
+parenExp = parens miniHs expr
 -- >>> ghci> testParse parenExp "(a)"
 -- CX (Var {getVar = "a"})
 

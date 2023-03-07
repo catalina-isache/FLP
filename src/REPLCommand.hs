@@ -1,4 +1,3 @@
-
 module REPLCommand where
 
 import Text.Parsec.String (Parser)
@@ -12,6 +11,22 @@ data REPLCommand
   | Load String
   | Eval String
 
-replCommand :: Parser REPLCommand
-replCommand = undefined
 
+replDef :: LanguageDef st
+replDef = emptyDef
+
+replTokenParser :: Token.TokenParser st
+replTokenParser = Token.makeTokenParser replDef
+
+quitCommand :: Parser REPLCommand
+quitCommand = Quit <$ (Token.symbol replTokenParser ":q" <|> Token.symbol replTokenParser ":quit")
+
+loadCommand :: Parser REPLCommand
+loadCommand = Load <$> (Token.symbol replTokenParser ":l" <|> Token.symbol replTokenParser ":load") <*> many anyChar
+
+evalCommand :: Parser REPLCommand
+evalCommand = Eval <$> many anyChar
+
+
+replCommand :: Parser REPLCommand
+replCommand = quitCommand <|> loadCommand <|> evalCommand
