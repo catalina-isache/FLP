@@ -1,4 +1,3 @@
-
 module Exp where
 
 import Numeric.Natural
@@ -16,3 +15,17 @@ data ComplexExp                         --  ComplexExp ::= "(" ComplexExp ")"
   | List [ComplexExp]                   --          |   "[" {ComplexExp ","}* "]"
   deriving (Show)
 
+
+data IndexedVar = IndexedVar
+  { ivName :: String
+  , ivCount :: Int
+  } deriving (Eq, Read, Show)
+
+makeIndexedVar :: String -> IndexedVar
+makeIndexedVar name = IndexedVar name 0
+
+data Exp
+  = X IndexedVar
+  | Lam IndexedVar Exp
+  | App Exp Exp
+  deriving (Show)

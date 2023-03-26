@@ -6,6 +6,8 @@ import Exp
 import Parsing
 import Printing
 import REPLCommand
+import Sugar
+import Eval
 
 main :: IO ()
 main = do
@@ -23,19 +25,18 @@ replLoop = do
         Quit -> return ()
         Load filePath -> do
           liftIO $ putStrLn $ "Loading file: " ++ filePath
-          -- Perform file loading logic here
           replLoop
         Eval exprStr -> do
-          let parsedExpr = parseExpr exprStr
-          case parsedExpr of
-            Left err -> liftIO $ putStrLn $ "Parse error: " ++ show err
-            Right expr -> do
-              let formattedExpr = showExp expr
-              liftIO $ putStrLn formattedExpr
+          let complexExp = readComplexExp exprStr
+              exp = simplifyComplexExp complexExp
+              normalizedExp = normalize exp
+              normalizedComplexExp = expandComplexExp normalizedExp
+              formattedExpr = showComplexExp normalizedComplexExp
+          liftIO $ putStrLn formattedExpr
           replLoop
 
 parseREPLCommand :: String -> REPLCommand
 parseREPLCommand input =
   case parse replCommand "" input of
-    Left _ -> Eval input -- Treat input as Eval command if parsing fails
+    Left _ -> Eval input 
     Right cmd -> cmd
