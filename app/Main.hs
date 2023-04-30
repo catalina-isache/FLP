@@ -1,42 +1,51 @@
 ﻿module Main where
 
-import System.IO
-import System.Console.Isocline
-import Exp
-import Parsing
-import Printing
-import REPLCommand
-import Sugar
-import Eval
+import System.Environment (getArgs)
+import System.IO (readFile)
+import Control.Monad (unless)
+import Text.ParserCombinators.Parsec (parse)
+
+import Program (program, programEnv, normalizeEnv)
+import Exp (Exp)
+import Eval (eval)
+
+-- Funcție pentru încărcarea fișierului prelude.mhs
+loadPrelude :: IO (Maybe [Exp])
+loadPrelude = do
+  preludeContents <- readFile "prelude.mhs"
+  case parse program "prelude.mhs" preludeContents of
+    Left err -> do
+      putStrLn ("Eroare la încărcarea fișierului prelude.mhs:\n" ++ show err)
+      return Nothing
+    Right definitions -> do
+      let env = programEnv definitions
+          normalizedDefs = map (\(k, v) -> (k, normalizeEnv env v)) (Map.toList env)
+      return (Just normalizedDefs)
+
+-- Funcție pentru evaluarea unei expresii în contextul dat de definițiile prelude-ului
+evalWithPrelude :: Maybe [Exp] -> Exp -> IO ()
+evalWithPrelude prelude exp =
+  case prelude of
+    Nothing -> return ()
+    Just defs -> do
+      let result = eval defs exp
+      putStrLn ("Rezultat: " ++ show result)
 
 main :: IO ()
 main = do
-  hSetBuffering stdout NoBuffering
-  runInputT defaultSettings replLoop
-
-replLoop :: InputT IO ()
-replLoop = do
-  minput <- getInputLine "λ> "
-  case minput of
-    Nothing -> return ()
-    Just input -> do
-      let command = parseREPLCommand input
-      case command of
-        Quit -> return ()
-        Load filePath -> do
-          liftIO $ putStrLn $ "Loading file: " ++ filePath
-          replLoop
-        Eval exprStr -> do
-          let complexExp = readComplexExp exprStr
-              exp = simplifyComplexExp complexExp
-              normalizedExp = normalize exp
-              normalizedComplexExp = expandComplexExp normalizedExp
-              formattedExpr = showComplexExp normalizedComplexExp
-          liftIO $ putStrLn formattedExpr
-          replLoop
-
-parseREPLCommand :: String -> REPLCommand
-parseREPLCommand input =
-  case parse replCommand "" input of
-    Left _ -> Eval input 
-    Right cmd -> cmd
+  args <- getArgs
+  prelude <- loadPrelude
+  case args of
+    [filename] -> do
+      contents <- readFile filename
+      case parse program filename contents of
+        Left err -> putStrLn ("Eroare la parsarea programului:\n" ++ show err)
+        Right definitions -> do
+          let env = programEnv definitions
+              normalizedDefs = map (\(k, v) -> (k, normalizeEnv env v)) (Map.toList env)
+          unless (null definitions) $
+            putStrLn "Definiții încărcate:"
+          mapM_ (putStrLn . show) normalizedDefs
+          putStrLn "Evaluare expresii:"
+          mapM_ (evalWithPrelude prelude) (map (normalizeEnv env . definitionExp) definitions)
+    _ -> putStrLn "Utilizare: interpreter <program.mhs>"

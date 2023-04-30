@@ -1,0 +1,94 @@
+module Prelude where
+import MyPrelude
+import BoolClass
+import EitherClass
+import ListClass
+import MaybeClass
+import NatClass
+import PairClass
+
+
+one :: NatClass n => n
+one = succ zero
+
+isZero :: NatClass n => n -> CBool
+isZero n = iter (const false) true n
+
+add :: NatClass n => n -> n -> n
+add n m = iter succ n m
+
+mul :: NatClass n => n -> n -> n
+mul n m = iter (add n) zero m
+
+exp :: NatClass n => n -> n -> n
+exp n m = iter (mul n) one m
+
+pred :: NatClass n => n -> CMaybe n
+pred n = maybe nothing just (sub n one)
+
+sub :: NatClass n => n -> n -> CMaybe n
+sub n m = if lt n m then nothing else just (iter pred n m)
+
+lt :: NatClass n => n -> n -> CBool
+lt n m = isZero (sub n m)
+
+gt :: NatClass n => n -> n -> CBool
+gt n m = lt m n
+
+gte :: NatClass n => n -> n -> CBool
+gte n m = not (lt n m)
+
+lte :: NatClass n => n -> n -> CBool
+lte n m = not (gt n m)
+
+eq :: NatClass n => n -> n -> CBool
+eq n m = BoolClass.not (lt n m) `and` BoolClass.not (gt n m)
+
+max :: NatClass n => n -> n -> n
+max n m = if lt n m then m else n
+
+
+newtype CList a = CList { getCList :: forall b . (a -> b -> b) -> b -> b }
+
+clist :: ListClass CList a
+clist = ListClass
+  { foldr = \f i l -> getCList l f i
+  , nil = CList (\f i -> i)
+  , cons = \x l -> CList (\f i -> f x (getCList l f i))
+  }
+
+fromListClass :: ListClass l1 a -> ListClass l2 a -> l1 a -> l2 a
+fromListClass l1 l2 = map l1 l2 id
+
+instance Show a => Show (CList a) where
+  show cl = "{" <> show (fromListClass clist list cl) <> "}"
+
+
+class PairClass p where
+  pair :: a -> b -> p a b
+  uncurry :: (a -> b -> c) -> p a b -> c
+
+instance PairClass (,) where
+  pair = (,)
+  uncurry = Tuple.uncurry
+
+curry :: (PairClass p) => (p a b -> c) -> a -> b -> c
+curry f x y = f (pair x y)
+
+fst :: (PairClass p) => p a b -> a
+fst = uncurry const
+
+snd :: (PairClass p) => p a b -> b
+snd = uncurry (flip const)
+
+newtype CPair a b = CPair { getCPair :: forall c. (a -> b -> c) -> c }
+
+instance PairClass CPair where
+  uncurry f p = getCPair p f
+  pair x y = CPair $ \f -> f x y
+
+fromPairClass :: (PairClass p, PairClass q) => p a b -> q a b
+fromPairClass = uncurry pair
+
+instance (Show a, Show b) => Show (CPair a b) where
+  show cp = "<" <> show (fromPairClass cp :: (a, b)) <> ">"
